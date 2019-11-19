@@ -2,6 +2,7 @@
 
 #include <QDebug>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QTextCodec>
@@ -59,6 +60,13 @@ void QScrapEngine::scrap()
     requestObj = m_requestsSchedule.at(m_scheduleIndex);
 
     m_request.setUrl(QUrl(requestObj.value("endpoint")));
+
+    if(requestObj.value("httpMethod") == "POST")
+    {
+        QString stringJSON = requestObj.value("httpMethod");
+        // Parei aqui, preciso refatorar pra fazer o post como querystring. Olhar para createNetworkReply
+    }
+
     auto reply = m_manager.get(m_request);
     auto scrapReply = new ScrapReply {this};
 
@@ -108,6 +116,22 @@ void QScrapEngine::addRequest(QString httpMethod, QString endpoint, QString var,
     m_requestsSchedule.append(hashObj);
 }
 
+void QScrapEngine::addRequest(QString httpMethod, QString endpoint, QJsonObject data)
+{
+    QHash<QString, QString> hashObj;
+
+    hashObj.insert("httpMethod", httpMethod);
+    hashObj.insert("endpoint", endpoint);
+
+    // Convert QJsonObject to QString
+    QJsonDocument doc(data);
+    QByteArray docByteArray = doc.toJson(QJsonDocument::Compact);
+    QString strJson = QLatin1String(docByteArray);
+    hashObj.insert("data", strJson);
+
+    m_requestsSchedule.append(hashObj);
+}
+
 QString QScrapEngine::fromByteArrayToString(QByteArray html)
 {
     return QTextCodec::codecForName("iso-8859-1")->toUnicode(html);
@@ -127,4 +151,30 @@ QString QScrapEngine::evaluateStringToContext(QString value)
         qDebug() << match.captured();
     }
     return value;
+}
+
+QJsonObject QScrapEngine::objectFromString(const QString& in)
+{
+    QJsonObject obj;
+
+    QJsonDocument doc = QJsonDocument::fromJson(in.toUtf8());
+
+    // check validity of the document
+    if(!doc.isNull())
+    {
+        if(doc.isObject())
+        {
+            obj = doc.object();
+        }
+        else
+        {
+            qDebug() << "Document is not an object" << endl;
+        }
+    }
+    else
+    {
+        qDebug() << "Invalid JSON...\n" << in << endl;
+    }
+
+    return obj;
 }
