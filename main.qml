@@ -10,18 +10,31 @@ Window {
     title: qsTr("Hello World")
 
     QWebScraper {
-        id: scraper        
+        id: scraper
         actions: [
-            {                
+            {
                 "endpoint": "https://suap.ifba.edu.br/accounts/login/?next=/",
+                "method": "GET",
                 "scraps": [
                     {
                         "name": "token",
                         "query": "/html/body/div[1]/div[1]/form/input/@value/string()"
                     }
                 ]
+            },
+            {
+                "endpoint": "https://suap.ifba.edu.br/accounts/login/?next=/",
+                "method": "POST",
+                "data": {
+                    "csrfmiddlewaretoken": "%%token%%",
+                    "username": txtUsername.text,
+                    "password": txtPassword.text,
+                    "this_is_the_login_form": "1",
+                    "next": "/"
+                },
+                "validator": "Início - SUAP: Sistema Unificado de Administração Pública"
             }
-        ]        
+        ]
     }
 
     Column {
