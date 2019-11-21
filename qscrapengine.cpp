@@ -24,9 +24,14 @@ ScrapReply::ScrapReply(QObject *parent)
 
 QScrapEngine::QScrapEngine(QObject *parent) : QObject(parent)
 {
+    m_request.setHeader(
+        QNetworkRequest::ContentTypeHeader,
+        QStringLiteral("application/x-www-form-urlencoded")
+    );
+
     QSslConfiguration conf = m_request.sslConfiguration();
     conf.setPeerVerifyMode(QSslSocket::VerifyNone);
-    m_request.setSslConfiguration(conf);
+    m_request.setSslConfiguration(conf);    
 }
 
 QScrapEngine::~QScrapEngine()
@@ -69,6 +74,7 @@ void QScrapEngine::scrap()
 
         if (reply->error() != QNetworkReply::NetworkError::NoError) {
             Q_EMIT scrapReply->finished(QHash<QString, QStringList>());
+            qDebug() << reply->error();
             return;
         }
         auto statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -78,7 +84,7 @@ void QScrapEngine::scrap()
         }
         QString payload {reply->readAll()}; // clazy:exclude=qt4-qstring-from-array
         tidyPayload(payload);
-        qDebug() << payload;
+        qDebug() << payload.mid(0, 200);
         QXmlQuery xmlQuery;
         xmlQuery.setFocus(payload);
 
@@ -165,18 +171,19 @@ void QScrapEngine::saveToContext(QString key, QStringList value)
 
 QString QScrapEngine::evaluateStringToContext(QString value)
 {
+    QString new_value = value;
     QRegularExpression re("%%(.*?)%%");
     QRegularExpressionMatchIterator i = re.globalMatch(value);
     while (i.hasNext()) {
         // For instance, we can capture only one variable for string.
         QRegularExpressionMatch match = i.next();
-        QString templateKey = match.captured();
-        QString templateValue = QScrapEngine::CONTEXT.value(templateKey).toString();
+        QString templateKey = match.captured(1);
+        QString templateValue = QScrapEngine::CONTEXT.value(templateKey).toArray().first().toString();
 
-        value.replace(QString("%%%1%%").arg(templateKey), templateValue);
+        new_value = value.replace(QString("%%%1%%").arg(templateKey), templateValue);
     }
-    qDebug() << value;
-    return value;
+    qDebug() << new_value;
+    return new_value;
 }
 
 QJsonObject QScrapEngine::objectFromString(const QString& in)
