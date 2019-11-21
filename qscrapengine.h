@@ -33,9 +33,8 @@ public:
     QString evaluateStringToContext(QString value);
     static void tidyPayload(QString &payload);
     static QJsonObject CONTEXT;
-//public slots:
-//    void replyFinished (QNetworkReply *reply);
 private:
+    QNetworkReply *doHttpRequest(QHash<QString, QString> requestObj);
     QString fromByteArrayToString(QByteArray html);
     void saveToContext(QString key, QStringList value);
     QJsonObject objectFromString(const QString& in);

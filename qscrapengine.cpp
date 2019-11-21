@@ -8,6 +8,8 @@
 #include <QTextCodec>
 #include <QXmlQuery>
 #include <QRegularExpression>
+#include <QStringLiteral>
+#include <QUrlQuery>
 
 #include <tidy.h>
 #include <tidybuffio.h>
@@ -59,15 +61,7 @@ void QScrapEngine::scrap()
     QHash<QString, QString> requestObj;
     requestObj = m_requestsSchedule.at(m_scheduleIndex);
 
-    m_request.setUrl(QUrl(requestObj.value("endpoint")));
-
-    if(requestObj.value("httpMethod") == "POST")
-    {
-        QString stringJSON = requestObj.value("httpMethod");
-        // Parei aqui, preciso refatorar pra fazer o post como querystring. Olhar para createNetworkReply
-    }
-
-    auto reply = m_manager.get(m_request);
+    auto reply = doHttpRequest(requestObj);
     auto scrapReply = new ScrapReply {this};
 
     connect (reply, &QNetworkReply::finished, this, [=]() {
@@ -84,6 +78,7 @@ void QScrapEngine::scrap()
         }
         QString payload {reply->readAll()}; // clazy:exclude=qt4-qstring-from-array
         tidyPayload(payload);
+        qDebug() << payload;
         QXmlQuery xmlQuery;
         xmlQuery.setFocus(payload);
 
@@ -132,6 +127,32 @@ void QScrapEngine::addRequest(QString httpMethod, QString endpoint, QJsonObject 
     m_requestsSchedule.append(hashObj);
 }
 
+QNetworkReply *QScrapEngine::doHttpRequest(QHash<QString, QString> requestObj)
+{
+    QString httpMethod = requestObj.value("httpMethod");
+    QString endpoint = requestObj.value("endpoint");
+
+    m_request.setUrl(endpoint);
+    if(httpMethod ==  "GET") {
+       return m_manager.get(m_request);
+    } else if (httpMethod ==  "POST"){
+        QStringList queryStringList;
+        QString data = requestObj.value("data");
+        QJsonDocument doc = QJsonDocument::fromJson(data.toUtf8());
+        QJsonObject obj = doc.object();
+
+        for (QJsonObject::const_iterator iter = obj.begin(); iter != obj.end(); ++iter) {
+            queryStringList.append(QString("%1=%2").arg(iter.key(), evaluateStringToContext(iter.value().toString())));
+        }
+
+        QString queryString = QStringLiteral("?") + queryStringList.join("&");
+
+        return m_manager.post(m_request, QUrlQuery {queryString}.toString(QUrl::FullyEncoded).toUtf8());
+    }
+
+    return nullptr;
+}
+
 QString QScrapEngine::fromByteArrayToString(QByteArray html)
 {
     return QTextCodec::codecForName("iso-8859-1")->toUnicode(html);
@@ -147,9 +168,14 @@ QString QScrapEngine::evaluateStringToContext(QString value)
     QRegularExpression re("%%(.*?)%%");
     QRegularExpressionMatchIterator i = re.globalMatch(value);
     while (i.hasNext()) {
+        // For instance, we can capture only one variable for string.
         QRegularExpressionMatch match = i.next();
-        qDebug() << match.captured();
+        QString templateKey = match.captured();
+        QString templateValue = QScrapEngine::CONTEXT.value(templateKey).toString();
+
+        value.replace(QString("%%%1%%").arg(templateKey), templateValue);
     }
+    qDebug() << value;
     return value;
 }
 
