@@ -25,13 +25,13 @@ Window {
             {
                 "endpoint": "https://suap.ifba.edu.br/accounts/login/?next=/",
                 "method": "POST",
-                "data": {
-                    "csrfmiddlewaretoken": "%%token%%",
-                    "username": txtUsername.text,
-                    "password": txtPassword.text,
-                    "this_is_the_login_form": "1",
-                    "next": "/"
-                },
+                "data": [
+                    {"csrfmiddlewaretoken": "%%token%%"},
+                    {"username": txtUsername.text},
+                    {"password": txtPassword.text},
+                    {"this_is_the_login_form": "1"},
+                    {"next": "/"}
+                ],
                 "validator": "Início - SUAP: Sistema Unificado de Administração Pública"
             }
         ]
