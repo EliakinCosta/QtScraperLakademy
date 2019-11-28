@@ -11,6 +11,7 @@ Window {
 
     QWebScraper {
         id: scraper
+        url: "https://suap.ifba.edu.br/"
         actions: [
             {
                 "endpoint": "https://suap.ifba.edu.br/accounts/login/?next=/",

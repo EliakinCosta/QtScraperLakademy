@@ -27,8 +27,19 @@ void QtScraper::setActions(const QJsonArray &actions)
     m_actions = actions;
 }
 
+QString QtScraper::url() const
+{
+    return m_url;
+}
+
+void QtScraper::setUrl(const QString url)
+{
+    m_url = url;
+}
+
 void QtScraper::scrap()
 {
+    m_scrapEngine.setBaseUrl(m_url);
     foreach(QJsonValue jsonValue, m_actions)
     {
         QJsonObject jsonObject = jsonValue.toObject();
