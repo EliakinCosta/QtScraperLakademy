@@ -28,6 +28,7 @@ public:
     explicit QScrapEngine(QObject *parent = nullptr);
     virtual ~QScrapEngine();
     void scrap();
+    void setBaseUrl(QString baseUrl);
     void addRequest(QString httpMethod, QString endpoint, QString var, QString query);
     void addRequest(QString httpMethod, QString endpoint, QJsonArray data);
     QString evaluateStringToContext(QString value);
@@ -42,7 +43,9 @@ private:
     QNetworkAccessManager m_manager;
     QNetworkRequest m_request;
     QList<QHash<QString, QString>> m_requestsSchedule;
+    QString m_baseUrl;
     int m_scheduleIndex = 0;
+
 };
 
 #endif // QSCRAPENGINE_H

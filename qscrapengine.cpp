@@ -34,7 +34,7 @@ QScrapEngine::QScrapEngine(QObject *parent) : QObject(parent)
     QSslConfiguration conf = m_request.sslConfiguration();
     conf.setPeerVerifyMode(QSslSocket::VerifyNone);
 
-    m_request.setSslConfiguration(conf);    
+    m_request.setSslConfiguration(conf);
 
 }
 
@@ -76,8 +76,6 @@ void QScrapEngine::scrap()
     connect (reply, &QNetworkReply::finished, this, [=]() {
         reply->deleteLater();
 
-
-
         if (reply->error() != QNetworkReply::NetworkError::NoError) {
             Q_EMIT scrapReply->finished(QHash<QString, QStringList>());            
             qDebug() << "ERRO:" << reply->errorString().toLower();
@@ -93,8 +91,24 @@ void QScrapEngine::scrap()
         {
             QUrl newUrl = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
             qDebug() << "redirected to " + newUrl.toString();
-            QNetworkRequest newRequest(newUrl);
-            m_manager.get(newRequest);
+            QHash<QString, QString> hashObj;
+
+            hashObj.insert("httpMethod", "GET");
+            hashObj.insert("endpoint", newUrl.toString());
+
+            auto replyRedirect = doHttpRequest(hashObj);
+
+            connect (replyRedirect, &QNetworkReply::finished, this, [=]() {
+                replyRedirect->deleteLater();
+
+                auto statusCode = replyRedirect->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
+                QString payload {replyRedirect->readAll()}; // clazy:exclude=qt4-qstring-from-array
+                tidyPayload(payload);
+                qDebug() << "pAYLOAD:" << payload.mid(0, 500);
+                qDebug() << "STATUS CODE:" << statusCode;
+
+            });
             return;
         }
         QString payload {reply->readAll()}; // clazy:exclude=qt4-qstring-from-array        
@@ -155,6 +169,9 @@ QNetworkReply *QScrapEngine::doHttpRequest(QHash<QString, QString> requestObj)
 {
     QString httpMethod = requestObj.value("httpMethod");
     QString endpoint = requestObj.value("endpoint");
+
+    if (!endpoint.toLower().startsWith("http"))
+        endpoint = m_baseUrl + endpoint;
 
     m_request.setUrl(endpoint);
     if(httpMethod ==  "GET") {
@@ -235,4 +252,9 @@ QJsonObject QScrapEngine::objectFromString(const QString& in)
     }
 
     return obj;
+}
+
+void QScrapEngine::setBaseUrl(QString baseUrl)
+{
+    m_baseUrl = baseUrl;
 }
