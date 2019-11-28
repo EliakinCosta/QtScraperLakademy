@@ -52,9 +52,9 @@ void QtScraper::scrap()
                     }
                 }
             } else {
-                if (jsonObject.value("data").isObject())
+                if (jsonObject.value("data").isArray())
                 {
-                    QJsonObject postData = jsonObject.value("data").toObject();
+                    QJsonArray postData = jsonObject.value("data").toArray();
                     m_scrapEngine.addRequest(
                         "POST",
                         m_scrapEngine.evaluateStringToContext(endpoint),

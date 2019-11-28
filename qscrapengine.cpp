@@ -29,9 +29,13 @@ QScrapEngine::QScrapEngine(QObject *parent) : QObject(parent)
         QStringLiteral("application/x-www-form-urlencoded")
     );
 
+    m_request.setRawHeader( "User-Agent" , "Mozilla Firefox" );
+
     QSslConfiguration conf = m_request.sslConfiguration();
     conf.setPeerVerifyMode(QSslSocket::VerifyNone);
+
     m_request.setSslConfiguration(conf);    
+
 }
 
 QScrapEngine::~QScrapEngine()
@@ -72,9 +76,11 @@ void QScrapEngine::scrap()
     connect (reply, &QNetworkReply::finished, this, [=]() {
         reply->deleteLater();
 
+
+
         if (reply->error() != QNetworkReply::NetworkError::NoError) {
-            Q_EMIT scrapReply->finished(QHash<QString, QStringList>());
-            qDebug() << reply->error();
+            Q_EMIT scrapReply->finished(QHash<QString, QStringList>());            
+            qDebug() << "ERRO:" << reply->errorString().toLower();
             return;
         }
         auto statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -82,23 +88,35 @@ void QScrapEngine::scrap()
             Q_EMIT scrapReply->finished(QHash<QString, QStringList>());
             return;
         }
-        QString payload {reply->readAll()}; // clazy:exclude=qt4-qstring-from-array
-        tidyPayload(payload);
-        qDebug() << payload.mid(0, 200);
-        QXmlQuery xmlQuery;
-        xmlQuery.setFocus(payload);
 
-        xmlQuery.setQuery(requestObj.value("query"));
-        if (!xmlQuery.isValid()) {
-            Q_EMIT scrapReply->finished(QHash<QString, QStringList>());
+        if(statusCode == 302)
+        {
+            QUrl newUrl = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
+            qDebug() << "redirected to " + newUrl.toString();
+            QNetworkRequest newRequest(newUrl);
+            m_manager.get(newRequest);
             return;
         }
+        QString payload {reply->readAll()}; // clazy:exclude=qt4-qstring-from-array        
+        tidyPayload(payload);
+        qDebug() << "pAYLOAD:" << payload;
+        qDebug() << "STATUS CODE:" << statusCode;
+
+        QXmlQuery xmlQuery;
         QStringList list;
-        xmlQuery.evaluateTo(&list);
+        if (requestObj.contains("query")) {
+            xmlQuery.setFocus(payload);
+            xmlQuery.setQuery(requestObj.value("query"));
+            if (!xmlQuery.isValid()) {
+                Q_EMIT scrapReply->finished(QHash<QString, QStringList>());
+                return;
+            }
+            xmlQuery.evaluateTo(&list);
 
-        saveToContext(requestObj.value("name"), list);
+            saveToContext(requestObj.value("name"), list);
 
-        Q_EMIT scrapReply->finished(list);
+            Q_EMIT scrapReply->finished(list);
+        }
         m_scheduleIndex++;
         scrap();
     });
@@ -117,7 +135,7 @@ void QScrapEngine::addRequest(QString httpMethod, QString endpoint, QString var,
     m_requestsSchedule.append(hashObj);
 }
 
-void QScrapEngine::addRequest(QString httpMethod, QString endpoint, QJsonObject data)
+void QScrapEngine::addRequest(QString httpMethod, QString endpoint, QJsonArray data)
 {
     QHash<QString, QString> hashObj;
 
@@ -142,18 +160,25 @@ QNetworkReply *QScrapEngine::doHttpRequest(QHash<QString, QString> requestObj)
     if(httpMethod ==  "GET") {
        return m_manager.get(m_request);
     } else if (httpMethod ==  "POST"){
-        QStringList queryStringList;
         QString data = requestObj.value("data");
         QJsonDocument doc = QJsonDocument::fromJson(data.toUtf8());
-        QJsonObject obj = doc.object();
+        QJsonArray obj = doc.array();
+        QUrlQuery query;
 
-        for (QJsonObject::const_iterator iter = obj.begin(); iter != obj.end(); ++iter) {
-            queryStringList.append(QString("%1=%2").arg(iter.key(), evaluateStringToContext(iter.value().toString())));
-        }
+        for (QJsonArray::const_iterator iter = obj.begin(); iter != obj.end(); ++iter) {
+            if (iter->isObject())
+            {
+                QJsonObject jsonObj = iter->toObject();
+                for (QJsonObject::const_iterator it = jsonObj.begin(); it != jsonObj.end(); it++) {
+                    query.addQueryItem(it.key(), evaluateStringToContext(it.value().toString()));
+                }
+            }
+        }        
+        QByteArray postData = query.toString(QUrl::FullyEncoded).toUtf8();
 
-        QString queryString = QStringLiteral("?") + queryStringList.join("&");
+        qDebug() << postData;
 
-        return m_manager.post(m_request, QUrlQuery {queryString}.toString(QUrl::FullyEncoded).toUtf8());
+        return m_manager.post(m_request, postData);
     }
 
     return nullptr;

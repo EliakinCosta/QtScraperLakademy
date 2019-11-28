@@ -29,7 +29,7 @@ public:
     virtual ~QScrapEngine();
     void scrap();
     void addRequest(QString httpMethod, QString endpoint, QString var, QString query);
-    void addRequest(QString httpMethod, QString endpoint, QJsonObject data);
+    void addRequest(QString httpMethod, QString endpoint, QJsonArray data);
     QString evaluateStringToContext(QString value);
     static void tidyPayload(QString &payload);
     static QJsonObject CONTEXT;
