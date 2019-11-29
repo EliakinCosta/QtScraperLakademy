@@ -34,7 +34,7 @@ QScrapEngine::QScrapEngine(QObject *parent) : QObject(parent)
     QSslConfiguration conf = m_request.sslConfiguration();
     conf.setPeerVerifyMode(QSslSocket::VerifyNone);
 
-    m_request.setSslConfiguration(conf);
+    m_request.setSslConfiguration(conf);    
 
 }
 
