@@ -14,6 +14,7 @@
 #include <tidy.h>
 #include <tidybuffio.h>
 
+
 QJsonObject QScrapEngine::CONTEXT;
 
 ScrapReply::ScrapReply(QObject *parent)
@@ -34,7 +35,10 @@ QScrapEngine::QScrapEngine(QObject *parent) : QObject(parent)
     QSslConfiguration conf = m_request.sslConfiguration();
     conf.setPeerVerifyMode(QSslSocket::VerifyNone);
 
-    m_request.setSslConfiguration(conf);    
+    m_request.setSslConfiguration(conf);
+
+    QObject::connect(&m_manager, &QNetworkAccessManager::finished,
+                         this, &QScrapEngine::replyFinished);
 
 }
 
@@ -45,10 +49,13 @@ QScrapEngine::~QScrapEngine()
 void QScrapEngine::tidyPayload(QString &payload)
 {
     TidyDoc tdoc = tidyCreate();
-    tidyOptSetBool(tdoc, TidyXmlOut, yes);
+    tidyOptSetBool(tdoc, TidyXhtmlOut, yes);
     tidyOptSetBool(tdoc, TidyQuiet, yes);
     tidyOptSetBool(tdoc, TidyNumEntities, yes);
     tidyOptSetBool(tdoc, TidyShowWarnings, no);
+    tidyOptSetBool(tdoc, TidyUseCustomTags, yes);
+    tidyOptSetValue(tdoc, TidyBlockTags, "preload");
+
 
     tidyParseString(tdoc, payload.toUtf8());
     tidyCleanAndRepair(tdoc);
@@ -70,71 +77,7 @@ void QScrapEngine::scrap()
     QHash<QString, QString> requestObj;
     requestObj = m_requestsSchedule.at(m_scheduleIndex);
 
-    auto reply = doHttpRequest(requestObj);
-    auto scrapReply = new ScrapReply {this};
-
-    connect (reply, &QNetworkReply::finished, this, [=]() {
-        reply->deleteLater();
-
-        if (reply->error() != QNetworkReply::NetworkError::NoError) {
-            Q_EMIT scrapReply->finished(QHash<QString, QStringList>());            
-            qDebug() << "ERRO:" << reply->errorString().toLower();
-            return;
-        }
-        auto statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (statusCode != 200 && statusCode != 302) {
-            Q_EMIT scrapReply->finished(QHash<QString, QStringList>());
-            return;
-        }
-
-        if(statusCode == 302)
-        {
-            QUrl newUrl = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
-            qDebug() << "redirected to " + newUrl.toString();
-            QHash<QString, QString> hashObj;
-
-            hashObj.insert("httpMethod", "GET");
-            hashObj.insert("endpoint", newUrl.toString());
-
-            auto replyRedirect = doHttpRequest(hashObj);
-
-            connect (replyRedirect, &QNetworkReply::finished, this, [=]() {
-                replyRedirect->deleteLater();
-
-                auto statusCode = replyRedirect->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-
-                QString payload {replyRedirect->readAll()}; // clazy:exclude=qt4-qstring-from-array
-                tidyPayload(payload);
-                qDebug() << "pAYLOAD:" << payload.mid(0, 500);
-                qDebug() << "STATUS CODE:" << statusCode;
-
-            });
-            return;
-        }
-        QString payload {reply->readAll()}; // clazy:exclude=qt4-qstring-from-array        
-        tidyPayload(payload);
-        qDebug() << "pAYLOAD:" << payload;
-        qDebug() << "STATUS CODE:" << statusCode;
-
-        QXmlQuery xmlQuery;
-        QStringList list;
-        if (requestObj.contains("query")) {
-            xmlQuery.setFocus(payload);
-            xmlQuery.setQuery(requestObj.value("query"));
-            if (!xmlQuery.isValid()) {
-                Q_EMIT scrapReply->finished(QHash<QString, QStringList>());
-                return;
-            }
-            xmlQuery.evaluateTo(&list);
-
-            saveToContext(requestObj.value("name"), list);
-
-            Q_EMIT scrapReply->finished(list);
-        }
-        m_scheduleIndex++;
-        scrap();
-    });
-
+    doHttpRequest(requestObj);
 }
 
 void QScrapEngine::addRequest(QString httpMethod, QString endpoint, QString var, QString query)
@@ -257,4 +200,70 @@ QJsonObject QScrapEngine::objectFromString(const QString& in)
 void QScrapEngine::setBaseUrl(QString baseUrl)
 {
     m_baseUrl = baseUrl;
+}
+
+void QScrapEngine::replyFinished(QNetworkReply *reply)
+{
+    reply->deleteLater();
+
+    QHash<QString, QString> requestObj;
+    requestObj = m_requestsSchedule.at(m_scheduleIndex);
+
+    if (reply->error() != QNetworkReply::NetworkError::NoError) {
+        qDebug() << "ERRO:" << reply->errorString().toLower();
+        return;
+    }
+    auto statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (statusCode != 200 && statusCode != 302) {
+        return;
+    }
+
+    if(statusCode == 302)
+    {
+        QUrl newUrl = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
+        qDebug() << "redirected to " + newUrl.toString();
+        QHash<QString, QString> hashObj;
+
+        hashObj.insert("httpMethod", "GET");
+        hashObj.insert("endpoint", newUrl.toString());
+
+        auto replyRedirect = doHttpRequest(hashObj);
+
+        connect (replyRedirect, &QNetworkReply::finished, this, [=]() {
+            replyRedirect->deleteLater();
+
+            auto statusCode = replyRedirect->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
+            QString payload {replyRedirect->readAll()}; // clazy:exclude=qt4-qstring-from-array
+            tidyPayload(payload);
+            qDebug() << "pAYLOAD:" << payload.mid(0, 500);
+            qDebug() << "STATUS CODE:" << statusCode;
+
+        });
+        return;
+    }
+    QString payload {reply->readAll()}; // clazy:exclude=qt4-qstring-from-array
+    tidyPayload(payload);
+    qDebug() << "pAYLOAD:" << payload;
+    qDebug() << "STATUS CODE:" << statusCode;
+
+    QXmlQuery xmlQuery;
+    QString result;
+    QStringList list;
+    payload = payload.replace("<!DOCTYPE html>\n", "");
+    xmlQuery.setFocus(payload);
+    xmlQuery.setQuery(requestObj.value("query"));
+    if (!xmlQuery.isValid()) {
+        return;
+    }
+
+    xmlQuery.evaluateTo(&result);
+    xmlQuery.evaluateTo(&list);
+
+    qDebug() << "Test eliakin " << result;
+
+    saveToContext(requestObj.value("name"), list);
+
+    m_scheduleIndex++;
+    scrap();
 }
