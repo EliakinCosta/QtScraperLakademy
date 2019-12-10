@@ -49,12 +49,10 @@ QScrapEngine::~QScrapEngine()
 void QScrapEngine::tidyPayload(QString &payload)
 {
     TidyDoc tdoc = tidyCreate();
-    tidyOptSetBool(tdoc, TidyXhtmlOut, yes);
+    tidyOptSetBool(tdoc, TidyXmlOut, yes);
     tidyOptSetBool(tdoc, TidyQuiet, yes);
     tidyOptSetBool(tdoc, TidyNumEntities, yes);
     tidyOptSetBool(tdoc, TidyShowWarnings, no);
-    tidyOptSetBool(tdoc, TidyUseCustomTags, yes);
-    tidyOptSetValue(tdoc, TidyBlockTags, "preload");
 
 
     tidyParseString(tdoc, payload.toUtf8());
