@@ -11,47 +11,42 @@ Window {
 
     QWebScraper {
         id: scraper
-        url: "https://suap.ifba.edu.br/"
+        url: "https://dribbble.com/"
         actions: [
             {
-                "endpoint": "https://suap.ifba.edu.br/accounts/login/?next=/",
+                "endpoint": "https://dribbble.com/shots/8952865-Budget-planner-Mobile-concept",
                 "method": "GET",
                 "scraps": [
                     {
-                        "name": "token",
-                        "query": "/html/body/div[1]/div[1]/form/input/@value/string()"
+                        "name": "title",
+                        "query": "/html/head/title/string()"
+                    },
+                    {
+                        "name": "description",
+                        "query": "/html/head/meta[9]/@content/string()"
+                    },
+                    {
+                        "name": "images",
+                        "query": "/html/body/div[3]/div[2]/div/div[2]/section/div/div[1]/div/div[1]/div/a/div/div/picture/source/@srcset/string()"
                     }
                 ]
-            },
-            {
-                "endpoint": "https://suap.ifba.edu.br/accounts/login/?next=/",
-                "method": "POST",
-                "data": [
-                    {"csrfmiddlewaretoken": "%%token%%"},
-                    {"username": txtUsername.text},
-                    {"password": txtPassword.text},
-                    {"this_is_the_login_form": "1"},
-                    {"next": "/"}
-                ],
-                "validator": "Início - SUAP: Sistema Unificado de Administração Pública"
             }
         ]
     }
 
     Column {
 
-        TextField {
-            id: txtUsername
-            color: "black"
+        Label {
+
         }
 
-        TextField {
-            id: txtPassword
-            color: "black"
+        Label {
+
         }
+
 
         Button {
-            text: "Test"
+            text: "Scrap"
             onClicked: scraper.scrap()
         }
     }
