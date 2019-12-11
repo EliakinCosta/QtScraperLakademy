@@ -27,7 +27,7 @@ Window {
                     },
                     {
                         "name": "images",
-                        "query": "/html/body/div[3]/div[2]/div/div[2]/section/div/div[1]/div/div[1]/div/a/div/div/picture/source/@srcset/string()"
+                        "query": "/html/body/div[4]/div[2]/div/div[2]/section/div/div[1]/div/div[1]/div/a/div/div/picture/@srcset/string()"
                     }
                 ]
             }
