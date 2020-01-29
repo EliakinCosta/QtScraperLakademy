@@ -7,6 +7,7 @@
 #include <QNetworkReply>
 #include <QTextCodec>
 #include <QXmlQuery>
+#include <QXmlResultItems>
 #include <QRegularExpression>
 #include <QStringLiteral>
 #include <QUrlQuery>
@@ -234,7 +235,7 @@ void QScrapEngine::replyFinished(QNetworkReply *reply)
 
             QString payload {replyRedirect->readAll()}; // clazy:exclude=qt4-qstring-from-array
             tidyPayload(payload);
-            qDebug() << "pAYLOAD:" << payload.mid(0, 500);
+            qDebug() << "pAYLOAD:" << payload.mid(0, 100);
             qDebug() << "STATUS CODE:" << statusCode;
 
         });
@@ -242,23 +243,19 @@ void QScrapEngine::replyFinished(QNetworkReply *reply)
     }
     QString payload {reply->readAll()}; // clazy:exclude=qt4-qstring-from-array
     tidyPayload(payload);
-    qDebug() << "pAYLOAD:" << payload;
+    qDebug() << "pAYLOAD:" << payload.mid(2000);
     qDebug() << "STATUS CODE:" << statusCode;
 
     QXmlQuery xmlQuery;
     QString result;
-    QStringList list;
-    payload = payload.replace("<!DOCTYPE html>\n", "");
+    QStringList list;    
     xmlQuery.setFocus(payload);
     xmlQuery.setQuery(requestObj.value("query"));
     if (!xmlQuery.isValid()) {
         return;
     }
 
-    xmlQuery.evaluateTo(&result);
     xmlQuery.evaluateTo(&list);
-
-    qDebug() << "Test eliakin " << result;
 
     saveToContext(requestObj.value("name"), list);
 
