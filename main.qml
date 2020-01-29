@@ -11,10 +11,10 @@ Window {
 
     QWebScraper {
         id: scraper
-        url: "https://dribbble.com/"
+        url: "https://www.fifaindex.com/"
         actions: [
             {
-                "endpoint": "https://dribbble.com/shots/8952865-Budget-planner-Mobile-concept",
+                "endpoint": "https://www.fifaindex.com/players/top/",
                 "method": "GET",
                 "scraps": [
                     {
@@ -22,12 +22,8 @@ Window {
                         "query": "/html/head/title/string()"
                     },
                     {
-                        "name": "description",
-                        "query": "/html/head/meta[9]/@content/string()"
-                    },
-                    {
-                        "name": "images",
-                        "query": "/html/body/div[4]/div[2]/div/div[2]/section/div/div[1]/div/div[1]/div/a/div/div/picture/@srcset/string()"
+                        "name": "product",
+                        "query": "/html/body/main/div/div[2]/div[2]/div[2]/table/tbody/tr/td[4]/a/@title/string()"
                     }
                 ]
             }
