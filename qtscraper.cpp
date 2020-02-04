@@ -27,6 +27,11 @@ void QtScraper::setActions(const QJsonArray &actions)
     m_actions = actions;
 }
 
+QJsonObject QtScraper::ctx() const
+{
+    return m_scrapEngine.CONTEXT;
+}
+
 QString QtScraper::url() const
 {
     return m_url;
