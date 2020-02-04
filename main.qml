@@ -22,7 +22,7 @@ Window {
                         "query": "/html/head/title/string()"
                     },
                     {
-                        "name": "product",
+                        "name": "names",
                         "query": "/html/body/main/div/div[2]/div[2]/div[2]/table/tbody/tr/td[4]/a/@title/string()"
                     }
                 ]
@@ -43,7 +43,9 @@ Window {
 
         Button {
             text: "Scrap"
-            onClicked: scraper.scrap()
+            onClicked: {
+                scraper.scrap()
+            }
         }
     }
 }
