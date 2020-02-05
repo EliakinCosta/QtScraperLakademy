@@ -28,6 +28,12 @@ Window {
                 ]
             }
         ]
+        onStatusChanged: {
+                if (scraper.status === QWebScraperStatus.Ready){
+                    console.log(status);
+                    console.log(JSON.stringify(ctx));
+                }
+        }
     }
 
     Column {
