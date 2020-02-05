@@ -15,6 +15,8 @@
 #include <tidy.h>
 #include <tidybuffio.h>
 
+#include "qwebscraperstatus.h"
+
 
 QJsonObject QScrapEngine::CONTEXT;
 
@@ -70,6 +72,7 @@ void QScrapEngine::scrap()
     if (m_requestsSchedule.size() == 0 || m_scheduleIndex >= m_requestsSchedule.size())
     {
         qDebug() << QScrapEngine::CONTEXT;
+        setStatus(QWebScraperStatus::Ready);
         return;
     }
 
@@ -77,6 +80,7 @@ void QScrapEngine::scrap()
     requestObj = m_requestsSchedule.at(m_scheduleIndex);
 
     doHttpRequest(requestObj);
+    setStatus(QWebScraperStatus::Loading);
 }
 
 void QScrapEngine::addRequest(QString httpMethod, QString endpoint, QString var, QString query)
@@ -210,10 +214,12 @@ void QScrapEngine::replyFinished(QNetworkReply *reply)
 
     if (reply->error() != QNetworkReply::NetworkError::NoError) {
         qDebug() << "ERRO:" << reply->errorString().toLower();
+        setStatus(QWebScraperStatus::Error);
         return;
     }
     auto statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if (statusCode != 200 && statusCode != 302) {
+        setStatus(QWebScraperStatus::Error);
         return;
     }
 
@@ -235,8 +241,6 @@ void QScrapEngine::replyFinished(QNetworkReply *reply)
 
             QString payload {replyRedirect->readAll()}; // clazy:exclude=qt4-qstring-from-array
             tidyPayload(payload);
-            qDebug() << "pAYLOAD:" << payload.mid(0, 100);
-            qDebug() << "STATUS CODE:" << statusCode;
 
         });
         return;
@@ -261,4 +265,18 @@ void QScrapEngine::replyFinished(QNetworkReply *reply)
 
     m_scheduleIndex++;
     scrap();
+}
+
+QWebScraperStatus::Status QScrapEngine::status() const
+{
+    return m_status;
+}
+
+void QScrapEngine::setStatus(QWebScraperStatus::Status status)
+{
+    if (m_status!=status)
+    {
+        m_status = status;
+        Q_EMIT statusChanged(m_status);
+    }
 }

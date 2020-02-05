@@ -5,6 +5,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 
+#include "qwebscraperstatus.h"
+
 class QByteArray;
 class QNetworkReply;
 
@@ -34,8 +36,13 @@ public:
     QString evaluateStringToContext(QString value);
     static void tidyPayload(QString &payload);
     static QJsonObject CONTEXT;
+
+    QWebScraperStatus::Status status() const;
+    void setStatus(QWebScraperStatus::Status status);
 public slots:
-    void replyFinished(QNetworkReply *reply);
+    void replyFinished(QNetworkReply *reply);    
+Q_SIGNALS:
+     void statusChanged(QWebScraperStatus::Status status);
 private:
     QNetworkReply *doHttpRequest(QHash<QString, QString> requestObj);
     QString fromByteArrayToString(QByteArray html);
@@ -47,6 +54,7 @@ private:
     QList<QHash<QString, QString>> m_requestsSchedule;
     QString m_baseUrl;
     int m_scheduleIndex = 0;
+    QWebScraperStatus::Status m_status;
 
 };
 
