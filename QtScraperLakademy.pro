@@ -18,7 +18,8 @@ SOURCES += \
         main.cpp \
         qscrapengine.cpp \
         qtscraper.cpp \
-        qtscraperplugin.cpp
+        qtscraperplugin.cpp \
+        qwebscraperstatus.cpp
 
 RESOURCES += qml.qrc
 
@@ -36,4 +37,5 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 HEADERS += \
     qscrapengine.h \
     qtscraper.h \
-    qtscraperplugin.h
+    qtscraperplugin.h \
+    qwebscraperstatus.h
