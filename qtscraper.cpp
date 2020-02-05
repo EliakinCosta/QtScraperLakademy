@@ -4,12 +4,17 @@
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QDebug>
+#include <QObject>
+#include <QQmlEngine>
 
 #include "qscrapengine.h"
+#include "qwebscraperstatus.h"
 
-QtScraper::QtScraper(QObject *parent) : QObject(parent)
+QtScraper::QtScraper(QObject *parent) :
+    QObject{parent}
 {
-
+    qmlRegisterUncreatableType<QWebScraperStatus>("com.ifba.scraping", 1, 0, "QWebScraperStatus", "Not creatable as it is an enum type");
+    connect(&m_scrapEngine, &QScrapEngine::statusChanged, this, &QtScraper::statusChanged);
 }
 
 QtScraper::~QtScraper()
@@ -40,6 +45,11 @@ QString QtScraper::url() const
 void QtScraper::setUrl(const QString url)
 {
     m_url = url;
+}
+
+QWebScraperStatus::Status QtScraper::status() const
+{
+    return m_scrapEngine.status();
 }
 
 void QtScraper::scrap()
