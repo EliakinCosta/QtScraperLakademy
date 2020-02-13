@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
+#include <QNetworkCookieJar>
 
 #include "qwebscraperstatus.h"
 
@@ -48,6 +49,7 @@ private:
     QString fromByteArrayToString(QByteArray html);
     void saveToContext(QString key, QStringList value);
     QJsonObject objectFromString(const QString& in);
+    void setCookies(const QString &cookies);
 private:
     QNetworkAccessManager m_manager;
     QNetworkRequest m_request;
@@ -55,6 +57,9 @@ private:
     QString m_baseUrl;
     int m_scheduleIndex = 0;
     QWebScraperStatus::Status m_status;
+    QString m_cookiesString;
+    QNetworkCookieJar m_cookieJar;
+    QUrl m_urlLogin;
 
 };
 

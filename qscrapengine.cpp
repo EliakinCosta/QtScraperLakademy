@@ -11,6 +11,8 @@
 #include <QRegularExpression>
 #include <QStringLiteral>
 #include <QUrlQuery>
+#include <QNetworkCookie>
+#include <QNetworkCookieJar>
 
 #include <tidy.h>
 #include <tidybuffio.h>
@@ -40,9 +42,10 @@ QScrapEngine::QScrapEngine(QObject *parent) : QObject(parent)
 
     m_request.setSslConfiguration(conf);
 
+    this->m_manager.setCookieJar(&m_cookieJar);
+
     QObject::connect(&m_manager, &QNetworkAccessManager::finished,
                          this, &QScrapEngine::replyFinished);
-
 }
 
 QScrapEngine::~QScrapEngine()
@@ -122,7 +125,7 @@ QNetworkReply *QScrapEngine::doHttpRequest(QHash<QString, QString> requestObj)
     m_request.setUrl(endpoint);
     if(httpMethod ==  "GET") {
        return m_manager.get(m_request);
-    } else if (httpMethod ==  "POST"){
+    } else if (httpMethod ==  "POST"){        
         QString data = requestObj.value("data");
         QJsonDocument doc = QJsonDocument::fromJson(data.toUtf8());
         QJsonArray obj = doc.array();
@@ -140,6 +143,13 @@ QNetworkReply *QScrapEngine::doHttpRequest(QHash<QString, QString> requestObj)
         QByteArray postData = query.toString(QUrl::FullyEncoded).toUtf8();
 
         qDebug() << postData;
+
+        QList<QNetworkCookie> cookies = m_manager.cookieJar()->cookiesForUrl(m_urlLogin);
+        for(auto it = cookies.begin(); it != cookies.end(); ++it){
+            qDebug() << cookies.toStdList();
+            m_request.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(*it));
+        }
+
 
         return m_manager.post(m_request, postData);
     }
@@ -167,6 +177,9 @@ QString QScrapEngine::evaluateStringToContext(QString value)
         QRegularExpressionMatch match = i.next();
         QString templateKey = match.captured(1);
         QString templateValue = QScrapEngine::CONTEXT.value(templateKey).toArray().first().toString();
+
+        QJsonValue test = QScrapEngine::CONTEXT.value(templateKey);
+        qDebug() << "test" << test.toString();
 
         new_value = value.replace(QString("%%%1%%").arg(templateKey), templateValue);
     }
@@ -217,6 +230,15 @@ void QScrapEngine::replyFinished(QNetworkReply *reply)
         setStatus(QWebScraperStatus::Error);
         return;
     }
+
+    m_urlLogin.setUrl(requestObj.value("endpoint"));
+    QList<QNetworkCookie> cookies = qvariant_cast<QList<QNetworkCookie>>(reply->header(QNetworkRequest::SetCookieHeader));
+    if(cookies.count() != 0){
+        //you must tell which cookie goes with which url
+        qDebug() << cookies.toStdList();
+        m_manager.cookieJar()->setCookiesFromUrl(cookies, m_urlLogin);
+    }
+
     auto statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if (statusCode != 200 && statusCode != 302) {
         setStatus(QWebScraperStatus::Error);
@@ -255,13 +277,10 @@ void QScrapEngine::replyFinished(QNetworkReply *reply)
     QStringList list;    
     xmlQuery.setFocus(payload);
     xmlQuery.setQuery(requestObj.value("query"));
-    if (!xmlQuery.isValid()) {
-        return;
+    if (xmlQuery.isValid()) {
+        xmlQuery.evaluateTo(&list);
+        saveToContext(requestObj.value("name"), list);
     }
-
-    xmlQuery.evaluateTo(&list);
-
-    saveToContext(requestObj.value("name"), list);
 
     m_scheduleIndex++;
     scrap();
@@ -280,3 +299,30 @@ void QScrapEngine::setStatus(QWebScraperStatus::Status status)
         Q_EMIT statusChanged(m_status);
     }
 }
+
+void QScrapEngine::setCookies(const QString &cookies)
+{
+    auto cookieJar = m_manager.cookieJar();
+    for (const auto &cookie : cookieJar->cookiesForUrl(QUrl("https://talentos.carreirarh.com/site/user_login/"))) {
+        if (cookie.name() == "csrftoken" || cookie.name() == "sessionid")
+            cookieJar->deleteCookie(cookie);
+    }
+    for (const auto &newCookie : cookies.split(';')) {
+        auto newCookieValues = newCookie.split('=');
+        if (newCookieValues.size() > 1)
+        {
+            qDebug() << newCookieValues.first().trimmed().toLatin1() << newCookieValues.last().trimmed().toLatin1();
+            QNetworkCookie newCookieObject(newCookieValues.first().trimmed().toLatin1(), newCookieValues.last().trimmed().toLatin1());
+            newCookieObject.setDomain("talentos.carreirarh.com");
+            newCookieObject.setPath("/site/user_login/");
+            cookieJar->insertCookie(newCookieObject);
+        }
+    }
+
+    QList<QNetworkCookie> cookies2 = m_manager.cookieJar()->cookiesForUrl(QUrl("https://www.fifaindex.com/accounts/login/"));
+    qDebug() << "Size: " << cookies2.size();
+    for(auto it = cookies2.begin(); it != cookies2.end(); ++it){
+       m_request.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(*it));
+    }
+}
+
